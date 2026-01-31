@@ -2,29 +2,32 @@ import mongoose, { Schema, Document } from 'mongoose';
 
 export interface IShow extends Document {
   eventId: mongoose.Types.ObjectId;
+  hallId: mongoose.Types.ObjectId;
   startTime: Date;
-  hallId: string; // Could be separate Hall/Theater schema properly, simplified as string ID for now
+  endTime: Date;
   totalSeats: number;
   price: number;
-  bookedSeats: string[]; // Array of strings e.g. "A1", "A2", "B5"
-  version: number; // For optimistic concurrency if needed (though we use Redis lock + Mongoose Transactions)
+  bookedSeats: string[];
+  version: number;
 }
 
 const ShowSchema = new Schema<IShow>({
   eventId: { type: Schema.Types.ObjectId, ref: 'Event', required: true, index: true },
+  hallId: { type: Schema.Types.ObjectId, ref: 'Hall', required: true, index: true },
   startTime: { type: Date, required: true, index: true },
-  hallId: { type: String, required: true },
+  endTime: { type: Date, required: true },
   totalSeats: { type: Number, required: true },
   price: { type: Number, required: true },
   bookedSeats: {
     type: [String],
     default: [],
-    index: true // Useful for finding if a specific seat is booked in a show? Maybe.
-  },
-  // Mongoose handles __v for versioning automatically, but explicit if we want custom logic
+    index: true
+  }
 }, { timestamps: true });
 
-// Index for query performance on finding shows for an event
+// Compound indexes for common queries
 ShowSchema.index({ eventId: 1, startTime: 1 });
+ShowSchema.index({ hallId: 1, startTime: 1 });
+ShowSchema.index({ startTime: 1, endTime: 1 });
 
 export const Show = mongoose.model<IShow>('Show', ShowSchema);

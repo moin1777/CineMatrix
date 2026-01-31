@@ -4,24 +4,34 @@ import bcrypt from 'bcrypt';
 export interface IUser extends Document {
   email: string;
   password?: string;
+  name?: string;
+  phone?: string;
   role: 'user' | 'admin';
   history: Array<{
     bookingId: mongoose.Types.ObjectId;
     bookedAt: Date;
     showId: mongoose.Types.ObjectId;
   }>;
+  isActive: boolean;
+  lastLogin?: Date;
   comparePassword(candidatePassword: string): Promise<boolean>;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 const UserSchema = new Schema<IUser>({
-  email: { type: String, required: true, unique: true, index: true },
+  email: { type: String, required: true, unique: true, index: true, lowercase: true, trim: true },
   password: { type: String, required: true, select: false },
-  role: { type: String, enum: ['user', 'admin'], default: 'user' },
+  name: { type: String, trim: true },
+  phone: { type: String, trim: true },
+  role: { type: String, enum: ['user', 'admin'], default: 'user', index: true },
   history: [{
     bookingId: { type: Schema.Types.ObjectId, ref: 'Booking' },
     bookedAt: { type: Date, default: Date.now },
     showId: { type: Schema.Types.ObjectId, ref: 'Show' }
-  }]
+  }],
+  isActive: { type: Boolean, default: true },
+  lastLogin: { type: Date }
 }, { timestamps: true });
 
 UserSchema.pre('save', async function () {

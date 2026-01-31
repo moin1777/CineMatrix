@@ -1,34 +1,42 @@
 import { Request, Response } from 'express';
 import * as AuthService from './auth.service';
 import { setRefreshCookie, verifyRefreshToken, clearRefreshCookie } from './auth.utils';
+import { registerSchema, loginSchema } from './auth.validation';
 
 export const register = async (req: Request, res: Response) => {
   try {
-    const { email, password } = req.body;
-    if (!email || !password) return res.status(400).json({ error: 'Missing fields' });
+    const parsed = registerSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'Validation failed', details: parsed.error.issues });
+    }
 
-    const result = await AuthService.registerUser({ email, password });
+    const result = await AuthService.registerUser(parsed.data);
 
     setRefreshCookie(res, result.refreshToken);
     res.status(201).json({
-      user: { id: result.user._id, email: result.user.email, role: result.user.role },
+      user: { id: result.user._id, email: result.user.email, name: result.user.name, role: result.user.role },
       accessToken: result.accessToken
     });
   } catch (error: any) {
+    if (error.message === 'User already exists') {
+      return res.status(409).json({ error: error.message });
+    }
     res.status(400).json({ error: error.message });
   }
 };
 
 export const login = async (req: Request, res: Response) => {
   try {
-    const { email, password } = req.body;
-    if (!email || !password) return res.status(400).json({ error: 'Missing fields' });
+    const parsed = loginSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'Validation failed', details: parsed.error.issues });
+    }
 
-    const result = await AuthService.loginUser({ email, password });
+    const result = await AuthService.loginUser(parsed.data);
 
     setRefreshCookie(res, result.refreshToken);
     res.json({
-      user: { id: result.user._id, email: result.user.email, role: result.user.role },
+      user: { id: result.user._id, email: result.user.email, name: result.user.name, role: result.user.role },
       accessToken: result.accessToken
     });
   } catch (error: any) {

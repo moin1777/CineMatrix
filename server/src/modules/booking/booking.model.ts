@@ -6,7 +6,13 @@ export interface IBooking extends Document {
   seats: string[];
   totalAmount: number;
   status: 'PENDING' | 'CONFIRMED' | 'CANCELLED';
-  paymentId?: string; // Stripe Payment Intent ID
+  paymentId?: string;
+  refundId?: string;
+  refundAmount?: number;
+  cancelledAt?: Date;
+  cancellationReason?: string;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 const BookingSchema = new Schema<IBooking>({
@@ -14,8 +20,17 @@ const BookingSchema = new Schema<IBooking>({
   showId: { type: Schema.Types.ObjectId, ref: 'Show', required: true, index: true },
   seats: [{ type: String, required: true }],
   totalAmount: { type: Number, required: true },
-  status: { type: String, enum: ['PENDING', 'CONFIRMED', 'CANCELLED'], default: 'PENDING' },
-  paymentId: { type: String }
+  status: { type: String, enum: ['PENDING', 'CONFIRMED', 'CANCELLED'], default: 'PENDING', index: true },
+  paymentId: { type: String, index: true },
+  refundId: { type: String },
+  refundAmount: { type: Number },
+  cancelledAt: { type: Date },
+  cancellationReason: { type: String }
 }, { timestamps: true });
+
+// Compound indexes for common queries
+BookingSchema.index({ userId: 1, status: 1 });
+BookingSchema.index({ showId: 1, status: 1 });
+BookingSchema.index({ createdAt: -1 });
 
 export const Booking = mongoose.model<IBooking>('Booking', BookingSchema);
