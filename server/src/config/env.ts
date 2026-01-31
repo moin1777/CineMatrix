@@ -15,7 +15,7 @@ export const config = {
     accessExpiration: '15m', // 15 minutes
     refreshExpiration: '7d', // 7 days
   },
-  clientUrl: process.env.CLIENT_URL || 'http://localhost:5173'
+  clientUrl: process.env.CLIENT_URL || 'http://localhost:3001'
 };
 
 if (!config.jwt.accessPrivateKey || !config.jwt.accessPublicKey) {

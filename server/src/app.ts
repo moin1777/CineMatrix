@@ -17,11 +17,30 @@ const app = express();
 
 // ============ SECURITY MIDDLEWARE ============
 app.use(helmet());
+
+// CORS configuration - support multiple origins for development
+const allowedOrigins = [
+  config.clientUrl,
+  'http://localhost:3001',
+  'http://127.0.0.1:3001'
+];
+
 app.use(cors({
-  origin: config.clientUrl,
+  origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      console.warn(`CORS blocked origin: ${origin}`);
+      callback(null, false);
+    }
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Idempotency-Key']
+  allowedHeaders: ['Content-Type', 'Authorization', 'Idempotency-Key', 'X-Requested-With'],
+  exposedHeaders: ['Set-Cookie']
 }));
 
 // ============ BODY PARSING ============
