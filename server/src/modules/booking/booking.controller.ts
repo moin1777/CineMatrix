@@ -47,10 +47,13 @@ export const lockMultipleSeats = async (req: Request, res: Response) => {
       });
     }
 
+    const expiresAt = new Date(Date.now() + 300 * 1000); // 5 minutes from now
     res.json({ 
       message: 'All seats locked successfully', 
       showId, 
-      seats: result.locked,
+      locked: result.locked,
+      failed: [],
+      expiresAt: expiresAt.toISOString(),
       expiresIn: 300 
     });
   } catch (error: any) {

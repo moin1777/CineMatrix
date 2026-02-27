@@ -1,6 +1,7 @@
 import { Event, IEvent } from './event.model';
 import { Show, IShow } from './show.model';
 import { Hall } from '../venue/venue.model';
+import { redis as redisClient } from '../../config/database';
 import mongoose from 'mongoose';
 
 // ============ EVENT SERVICES ============
@@ -250,13 +251,29 @@ export const getAvailableSeats = async (showId: string) => {
 
   const bookedSeatsSet = new Set(show.bookedSeats);
   
+  // Get all locked seats from Redis
+  const lockedSeatsSet = new Set<string>();
+  const lockPattern = `seat_lock:${showId}:*`;
+  const lockedKeys = await redisClient.keys(lockPattern);
+  
+  for (const key of lockedKeys) {
+    // Extract seat ID from key: "seat_lock:showId:seatId" -> "seatId"
+    const seatId = key.split(':').pop();
+    if (seatId) {
+      lockedSeatsSet.add(seatId);
+    }
+  }
+  
   const availableSeats = hall.seatMap.map(seat => {
     const seatId = `${seat.row}${seat.number}`;
+    const isBooked = bookedSeatsSet.has(seatId);
+    const isLocked = lockedSeatsSet.has(seatId);
     return {
       ...seat,
       seatId,
-      isAvailable: !bookedSeatsSet.has(seatId),
-      isBooked: bookedSeatsSet.has(seatId)
+      isAvailable: !isBooked && !isLocked,
+      isBooked,
+      isLocked
     };
   });
 
@@ -276,7 +293,9 @@ export const getAvailableSeats = async (showId: string) => {
     hallName: hall.name,
     totalSeats: hall.capacity,
     bookedCount: show.bookedSeats.length,
-    availableCount: hall.capacity - show.bookedSeats.length,
+    lockedCount: lockedSeatsSet.size,
+    availableCount: hall.capacity - show.bookedSeats.length - lockedSeatsSet.size,
+    lockedSeats: Array.from(lockedSeatsSet),
     seatsByRow,
     allSeats: availableSeats
   };

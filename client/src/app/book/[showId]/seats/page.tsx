@@ -63,6 +63,7 @@ export default function SeatSelectionPage() {
 
   const [loading, setLoading] = useState(true);
   const [showData, setShowData] = useState<ServerShow | null>(null);
+  const [lockedSeats, setLockedSeats] = useState<string[]>([]);
   const [sections, setSections] = useState<SeatSectionConfig[]>(mockSections);
 
   const [selectedSeats, setSelectedSeats] = useState<Seat[]>([]);
@@ -71,13 +72,17 @@ export default function SeatSelectionPage() {
   const [lockExpiresAt, setLockExpiresAt] = useState<Date | null>(null);
   const [remainingSeconds, setRemainingSeconds] = useState(0);
 
-  // Fetch show data
+  // Fetch show data and seat availability
   useEffect(() => {
     const fetchData = async () => {
       try {
         // Fetch show with populated event and venue data
-        const response = await api.get<{ show: ServerShow }>(`/events/shows/${showId}`);
-        setShowData(response.show);
+        const [showResponse, seatsResponse] = await Promise.all([
+          api.get<{ show: ServerShow }>(`/events/shows/${showId}`),
+          api.get<{ lockedSeats?: string[] }>(`/events/shows/${showId}/seats`)
+        ]);
+        setShowData(showResponse.show);
+        setLockedSeats(seatsResponse.lockedSeats || []);
       } catch (err) {
         console.error('Failed to fetch show data:', err);
         setShowData(null);
@@ -90,6 +95,31 @@ export default function SeatSelectionPage() {
       fetchData();
     }
   }, [showId]);
+
+  // Poll for seat availability updates (every 5 seconds) while user hasn't locked seats yet
+  useEffect(() => {
+    if (!showId || isLocked) return;
+
+    const pollSeats = async () => {
+      try {
+        const seatsResponse = await api.get<{ lockedSeats?: string[] }>(`/events/shows/${showId}/seats`);
+        setLockedSeats(seatsResponse.lockedSeats || []);
+        
+        // Check if any selected seats are now locked by another user
+        const newLockedSeats = seatsResponse.lockedSeats || [];
+        const conflictingSeats = selectedSeats.filter(s => newLockedSeats.includes(s.id));
+        if (conflictingSeats.length > 0) {
+          warning(`Seats ${conflictingSeats.map(s => s.id).join(', ')} have been locked by another user`);
+          setSelectedSeats(prev => prev.filter(s => !newLockedSeats.includes(s.id)));
+        }
+      } catch (err) {
+        console.error('Failed to poll seat availability:', err);
+      }
+    };
+
+    const interval = setInterval(pollSeats, 5000); // Poll every 5 seconds
+    return () => clearInterval(interval);
+  }, [showId, isLocked, selectedSeats, warning]);
 
   // Lock timer countdown
   useEffect(() => {
@@ -150,21 +180,33 @@ export default function SeatSelectionPage() {
 
     setIsLocking(true);
     try {
-      const response = await api.post<{ expiresAt: string }>('/bookings/lock-multiple', {
+      const response = await api.post<{ locked: string[]; failed: string[]; expiresAt: string }>('/bookings/lock-multiple', {
         showId: showData?._id,
         seatIds: selectedSeats.map((s) => s.id),
       });
+
+      if (response.failed && response.failed.length > 0) {
+        // Some seats couldn't be locked - they were already locked by another user
+        showError('Some seats are no longer available', `Seats ${response.failed.join(', ')} have been locked by another user`);
+        // Refresh locked seats from server
+        const seatsResponse = await api.get<{ lockedSeats?: string[] }>(`/events/shows/${showId}/seats`);
+        setLockedSeats(seatsResponse.lockedSeats || []);
+        // Clear selected seats that failed
+        setSelectedSeats((prev) => prev.filter((s) => !response.failed.includes(s.id)));
+        return;
+      }
 
       const expiresAt = new Date(response.expiresAt);
       setLockExpiresAt(expiresAt);
       setIsLocked(true);
       success('Seats locked successfully!', 'Complete your booking within 5 minutes');
     } catch (err: any) {
-      // For demo, simulate successful lock
-      const expiresAt = new Date(Date.now() + LOCK_DURATION * 1000);
-      setLockExpiresAt(expiresAt);
-      setIsLocked(true);
-      success('Seats locked successfully!', 'Complete your booking within 5 minutes');
+      showError('Failed to lock seats', err.message || 'Please try again');
+      // Refresh seat availability
+      try {
+        const seatsResponse = await api.get<{ lockedSeats?: string[] }>(`/events/shows/${showId}/seats`);
+        setLockedSeats(seatsResponse.lockedSeats || []);
+      } catch {}
     } finally {
       setIsLocking(false);
     }
@@ -256,6 +298,7 @@ export default function SeatSelectionPage() {
           columns={12}
           sections={sections}
           bookedSeats={showData.bookedSeats || []}
+          lockedSeats={lockedSeats}
           selectedSeats={selectedSeats}
           maxSeats={MAX_SEATS}
           onSeatSelect={handleSeatSelect}
