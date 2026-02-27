@@ -8,140 +8,77 @@ import { MovieCarousel } from '@/components/movies/movie-carousel';
 import { MovieCardSkeleton } from '@/components/ui/skeleton';
 import type { Event } from '@/types';
 
-// Mock upcoming data
-const mockUpcoming: Event[] = [
-  {
-    _id: 'u1',
-    title: 'Guardians of the Galaxy 4',
-    description: '',
-    category: 'movie',
-    genre: ['Action', 'Sci-Fi', 'Comedy'],
-    language: ['English'],
-    duration: 145,
-    releaseDate: '2026-03-15',
-    posterUrl: 'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?q=80&w=400',
-    cast: [],
-    crew: [],
-    certificate: 'UA',
-    status: 'upcoming',
-    createdAt: '',
-    updatedAt: '',
-  },
-  {
-    _id: 'u2',
-    title: 'Black Panther 3',
-    description: '',
-    category: 'movie',
-    genre: ['Action', 'Adventure'],
-    language: ['English'],
-    duration: 150,
-    releaseDate: '2026-03-22',
-    posterUrl: 'https://images.unsplash.com/photo-1594909122845-11baa439b7bf?q=80&w=400',
-    cast: [],
-    crew: [],
-    certificate: 'UA',
-    status: 'upcoming',
-    createdAt: '',
-    updatedAt: '',
-  },
-  {
-    _id: 'u3',
-    title: 'Thor 5',
-    description: '',
-    category: 'movie',
-    genre: ['Action', 'Fantasy'],
-    language: ['English'],
-    duration: 140,
-    releaseDate: '2026-04-01',
-    posterUrl: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=400',
-    cast: [],
-    crew: [],
-    certificate: 'UA',
-    status: 'upcoming',
-    createdAt: '',
-    updatedAt: '',
-  },
-  {
-    _id: 'u4',
-    title: 'Wonder Woman 3',
-    description: '',
-    category: 'movie',
-    genre: ['Action', 'Fantasy'],
-    language: ['English'],
-    duration: 155,
-    releaseDate: '2026-04-10',
-    posterUrl: 'https://images.unsplash.com/photo-1509347528160-9a9e33742cdb?q=80&w=400',
-    cast: [],
-    crew: [],
-    certificate: 'UA',
-    status: 'upcoming',
-    createdAt: '',
-    updatedAt: '',
-  },
-  {
-    _id: 'u5',
-    title: 'Fast & Furious 12',
-    description: '',
-    category: 'movie',
-    genre: ['Action', 'Thriller'],
-    language: ['English'],
-    duration: 135,
-    releaseDate: '2026-04-15',
-    posterUrl: 'https://images.unsplash.com/photo-1536440136628-849c177e76a1?q=80&w=400',
-    cast: [],
-    crew: [],
-    certificate: 'UA',
-    status: 'upcoming',
-    createdAt: '',
-    updatedAt: '',
-  },
-  {
-    _id: 'u6',
-    title: 'Jurassic World 4',
-    description: '',
-    category: 'movie',
-    genre: ['Action', 'Sci-Fi', 'Adventure'],
-    language: ['English'],
-    duration: 160,
-    releaseDate: '2026-05-01',
-    posterUrl: 'https://images.unsplash.com/photo-1440404653325-ab127d49abc1?q=80&w=400',
-    cast: [],
-    crew: [],
-    certificate: 'UA',
-    status: 'upcoming',
-    createdAt: '',
-    updatedAt: '',
-  },
-];
+// Server response interface
+interface ServerEvent {
+  _id: string;
+  title: string;
+  description?: string;
+  durationMinutes: number;
+  posterUrl?: string;
+  bannerUrl?: string;
+  genre: string[];
+  language?: string;
+  rating?: string;
+  releaseDate?: string;
+  cast?: string[];
+  director?: string;
+  isActive: boolean;
+}
+
+// Transform server event to client Event type
+const transformEvent = (e: ServerEvent): Event => ({
+  _id: e._id,
+  title: e.title,
+  description: e.description || '',
+  category: 'movie',
+  genre: e.genre || [],
+  language: e.language ? [e.language] : ['Hindi'],
+  duration: e.durationMinutes,
+  releaseDate: e.releaseDate || '',
+  posterUrl: e.posterUrl || 'https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=400&q=80',
+  bannerUrl: e.bannerUrl,
+  cast: (e.cast || []).map(name => ({ name, role: '' })),
+  crew: e.director ? [{ name: e.director, role: 'Director' }] : [],
+  rating: e.rating ? parseFloat(e.rating) || undefined : undefined,
+  certificate: e.rating,
+  status: 'upcoming',
+  createdAt: '',
+  updatedAt: '',
+});
 
 export function UpcomingSection() {
-  const [movies, setMovies] = useState<Event[]>(mockUpcoming);
+  const [movies, setMovies] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchUpcoming = async () => {
+    const fetchMovies = async () => {
       try {
-        const response = await api.get<{ data: Event[] }>('/events?status=upcoming&limit=10');
-        if (response.data.length > 0) {
-          setMovies(response.data);
+        // Fetch movies and show the last few (simulating upcoming)
+        const response = await api.get<{ events: ServerEvent[]; total: number }>('/events?limit=12');
+        if (response.events && response.events.length > 6) {
+          // Take the last 6 movies as "upcoming"
+          const upcoming = response.events.slice(-6);
+          setMovies(upcoming.map(transformEvent));
+        } else if (response.events) {
+          setMovies(response.events.map(transformEvent));
         }
-      } catch {
-        // Use mock data
+      } catch (error) {
+        console.error('Failed to fetch upcoming movies:', error);
       } finally {
         setLoading(false);
       }
     };
-    fetchUpcoming();
+    fetchMovies();
   }, []);
 
   if (loading) {
     return (
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-2">
-            <Calendar className="w-5 h-5 text-primary-500" />
-            <h2 className="text-2xl font-bold text-white">Coming Soon</h2>
-          </div>
+          <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+            <Calendar className="w-6 h-6 text-primary-500" />
+            Coming Soon
+          </h2>
         </div>
         <div className="flex gap-4 overflow-hidden">
           {Array.from({ length: 6 }).map((_, i) => (
@@ -154,15 +91,19 @@ export function UpcomingSection() {
     );
   }
 
+  if (movies.length === 0) {
+    return null;
+  }
+
   return (
     <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-2">
-          <Calendar className="w-5 h-5 text-primary-500" />
-          <h2 className="text-2xl font-bold text-white">Coming Soon</h2>
-        </div>
+        <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+          <Calendar className="w-6 h-6 text-primary-500" />
+          Coming Soon
+        </h2>
         <Link
-          href="/movies?status=upcoming"
+          href="/movies"
           className="flex items-center gap-1 text-primary-500 hover:text-primary-400 transition-colors text-sm font-medium"
         >
           See All

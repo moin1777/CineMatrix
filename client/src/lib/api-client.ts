@@ -20,6 +20,19 @@ export interface ApiResponse<T> {
   message?: string;
 }
 
+// In-memory access token storage (secure - not in localStorage)
+let accessToken: string | null = null;
+
+export const setAccessToken = (token: string | null) => {
+  accessToken = token;
+};
+
+export const getAccessToken = () => accessToken;
+
+export const clearAccessToken = () => {
+  accessToken = null;
+};
+
 // Queue for failed requests during token refresh
 interface QueueItem {
   resolve: (value?: unknown) => void;
@@ -55,7 +68,10 @@ const createApiClient = (): AxiosInstance => {
   // Request interceptor
   client.interceptors.request.use(
     (config: InternalAxiosRequestConfig) => {
-      // Add any request transformations here
+      // Attach access token to Authorization header if available
+      if (accessToken) {
+        config.headers.Authorization = `Bearer ${accessToken}`;
+      }
       return config;
     },
     (error: AxiosError) => {
@@ -73,12 +89,8 @@ const createApiClient = (): AxiosInstance => {
 
       // If error is 401 and we haven't retried yet
       if (error.response?.status === 401 && !originalRequest._retry) {
-        // Don't retry refresh endpoint itself
+        // Don't retry refresh endpoint itself - just reject
         if (originalRequest.url?.includes('/auth/refresh')) {
-          // Refresh failed, redirect to login
-          if (typeof window !== 'undefined') {
-            window.location.href = '/login';
-          }
           return Promise.reject(error);
         }
 
@@ -96,21 +108,25 @@ const createApiClient = (): AxiosInstance => {
 
         try {
           // Attempt to refresh the token
-          await client.post('/auth/refresh');
+          const response = await client.post<{ accessToken: string }>('/auth/refresh');
+          
+          // Store the new access token
+          const newAccessToken = response.data.accessToken;
+          setAccessToken(newAccessToken);
           
           // Token refresh successful, process queued requests
           processQueue(null);
           
-          // Retry the original request
+          // Retry the original request with new token
+          originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
           return client(originalRequest);
         } catch (refreshError) {
-          // Refresh failed, process queue with error
+          // Refresh failed, clear token and process queue with error
+          clearAccessToken();
           processQueue(refreshError as Error);
           
-          // Redirect to login
-          if (typeof window !== 'undefined') {
-            window.location.href = '/login';
-          }
+          // Don't redirect here - let the calling code handle auth failures
+          // Protected pages/components should check isAuthenticated and redirect as needed
           
           return Promise.reject(refreshError);
         } finally {

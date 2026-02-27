@@ -78,7 +78,7 @@ export function Navbar() {
                 >
                   <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary-500 to-primary-700 flex items-center justify-center">
                     <span className="text-sm font-medium text-white">
-                      {user.name.charAt(0).toUpperCase()}
+                      {(user.name || user.email || 'U').charAt(0).toUpperCase()}
                     </span>
                   </div>
                   <ChevronDown className={cn(
@@ -97,7 +97,7 @@ export function Navbar() {
                       className="absolute right-0 mt-2 w-56 rounded-xl bg-background-secondary border border-border shadow-xl overflow-hidden"
                     >
                       <div className="p-3 border-b border-border">
-                        <p className="font-medium text-white truncate">{user.name}</p>
+                        <p className="font-medium text-white truncate">{user.name || 'User'}</p>
                         <p className="text-sm text-gray-400 truncate">{user.email}</p>
                       </div>
                       <div className="py-1">

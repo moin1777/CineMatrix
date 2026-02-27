@@ -19,148 +19,107 @@ import { formatDuration, formatDate, cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import type { Event, Show, Venue } from '@/types';
 
-// Mock movie data
-const mockMovie: Event = {
-  _id: '1',
-  title: 'Dune: Part Three',
-  description:
-    'The epic conclusion to the Dune saga as Paul Atreides leads the Fremen in a final battle against the Emperor. With ancient prophecies converging and the fate of the universe hanging in the balance, Paul must embrace his destiny while confronting the dark legacy of his bloodline.',
-  category: 'movie',
-  genre: ['Sci-Fi', 'Adventure', 'Drama', 'Action'],
-  language: ['English', 'Hindi'],
-  duration: 165,
-  releaseDate: '2026-01-15',
-  posterUrl: 'https://images.unsplash.com/photo-1534809027769-b00d750a6bac?q=80&w=1000',
-  bannerUrl: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?q=80&w=2070',
-  trailerUrl: 'https://youtube.com/watch?v=example',
-  cast: [
-    { name: 'Timothée Chalamet', role: 'Paul Atreides', imageUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100' },
-    { name: 'Zendaya', role: 'Chani', imageUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100' },
-    { name: 'Rebecca Ferguson', role: 'Lady Jessica', imageUrl: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100' },
-    { name: 'Javier Bardem', role: 'Stilgar', imageUrl: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100' },
-  ],
-  crew: [
-    { name: 'Denis Villeneuve', role: 'Director' },
-    { name: 'Hans Zimmer', role: 'Music' },
-  ],
-  rating: 9.2,
-  certificate: 'UA',
-  status: 'now_showing',
-  featured: true,
-  createdAt: '',
-  updatedAt: '',
+// Server event response interface (matches server model)
+interface ServerEvent {
+  _id: string;
+  title: string;
+  description?: string;
+  durationMinutes: number;
+  posterUrl?: string;
+  bannerUrl?: string;
+  trailerUrl?: string;
+  genre: string[];
+  language?: string;
+  rating?: string;
+  releaseDate?: string;
+  cast?: string[];
+  director?: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Normalized movie interface for UI
+interface MovieData {
+  _id: string;
+  title: string;
+  description: string;
+  duration: number;
+  posterUrl: string;
+  bannerUrl?: string;
+  trailerUrl?: string;
+  genre: string[];
+  language: string[];
+  rating?: number;
+  certificate?: string;
+  releaseDate: string;
+  cast: { name: string; role: string; imageUrl?: string }[];
+  director?: string;
+  status: 'upcoming' | 'now_showing' | 'ended';
+}
+
+// Server show response interface
+interface ServerShow {
+  _id: string;
+  eventId: string;
+  hallId: {
+    _id: string;
+    name: string;
+    venueId: {
+      _id: string;
+      name: string;
+      city: string;
+    };
+  };
+  startTime: string;
+  endTime: string;
+  price: number;
+  totalSeats: number;
+  bookedSeats: string[];
+}
+
+interface VenueShowGroup {
+  venue: {
+    _id: string;
+    name: string;
+    city: string;
+  };
+  shows: ServerShow[];
+}
+
+// Helper function to transform server event to UI format
+const transformEvent = (serverEvent: ServerEvent): MovieData => {
+  return {
+    _id: serverEvent._id,
+    title: serverEvent.title,
+    description: serverEvent.description || '',
+    duration: serverEvent.durationMinutes,
+    posterUrl: serverEvent.posterUrl || 'https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=400&q=80',
+    bannerUrl: serverEvent.bannerUrl,
+    trailerUrl: serverEvent.trailerUrl,
+    genre: serverEvent.genre || [],
+    language: serverEvent.language ? [serverEvent.language] : ['Hindi'],
+    rating: serverEvent.rating ? parseFloat(serverEvent.rating) || undefined : undefined,
+    certificate: serverEvent.rating,
+    releaseDate: serverEvent.releaseDate || '',
+    cast: (serverEvent.cast || []).map((name, index) => ({
+      name,
+      role: index === 0 ? 'Lead' : 'Supporting',
+      imageUrl: `https://images.unsplash.com/photo-${1507003211169 + index}-0a1dd7228f2d?w=100`
+    })),
+    director: serverEvent.director,
+    status: 'now_showing'
+  };
 };
-
-// Mock shows data
-const mockShows: { venue: Venue; shows: Show[] }[] = [
-  {
-    venue: {
-      _id: 'v1',
-      name: 'PVR IMAX',
-      address: 'Phoenix Mall, Lower Parel',
-      city: 'Mumbai',
-      state: 'Maharashtra',
-      pincode: '400013',
-      facilities: ['IMAX', 'Dolby Atmos', 'Recliner', 'F&B'],
-      screens: [],
-      createdAt: '',
-      updatedAt: '',
-    },
-    shows: [
-      {
-        _id: 's1',
-        event: '1',
-        venue: 'v1',
-        screen: 'Screen 1',
-        showTime: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(),
-        endTime: '',
-        pricing: [{ category: 'standard', price: 350 }],
-        bookedSeats: [],
-        status: 'scheduled',
-        createdAt: '',
-        updatedAt: '',
-      },
-      {
-        _id: 's2',
-        event: '1',
-        venue: 'v1',
-        screen: 'Screen 1',
-        showTime: new Date(Date.now() + 5 * 60 * 60 * 1000).toISOString(),
-        endTime: '',
-        pricing: [{ category: 'standard', price: 400 }],
-        bookedSeats: [],
-        status: 'scheduled',
-        createdAt: '',
-        updatedAt: '',
-      },
-      {
-        _id: 's3',
-        event: '1',
-        venue: 'v1',
-        screen: 'Screen 1',
-        showTime: new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString(),
-        endTime: '',
-        pricing: [{ category: 'standard', price: 450 }],
-        bookedSeats: [],
-        status: 'scheduled',
-        createdAt: '',
-        updatedAt: '',
-      },
-    ],
-  },
-  {
-    venue: {
-      _id: 'v2',
-      name: 'INOX Megaplex',
-      address: 'R City Mall, Ghatkopar',
-      city: 'Mumbai',
-      state: 'Maharashtra',
-      pincode: '400086',
-      facilities: ['Dolby Atmos', 'Luxe', 'F&B'],
-      screens: [],
-      createdAt: '',
-      updatedAt: '',
-    },
-    shows: [
-      {
-        _id: 's4',
-        event: '1',
-        venue: 'v2',
-        screen: 'Insignia',
-        showTime: new Date(Date.now() + 3 * 60 * 60 * 1000).toISOString(),
-        endTime: '',
-        pricing: [{ category: 'standard', price: 300 }],
-        bookedSeats: [],
-        status: 'scheduled',
-        createdAt: '',
-        updatedAt: '',
-      },
-      {
-        _id: 's5',
-        event: '1',
-        venue: 'v2',
-        screen: 'Insignia',
-        showTime: new Date(Date.now() + 6 * 60 * 60 * 1000).toISOString(),
-        endTime: '',
-        pricing: [{ category: 'standard', price: 350 }],
-        bookedSeats: [],
-        status: 'scheduled',
-        createdAt: '',
-        updatedAt: '',
-      },
-    ],
-  },
-];
 
 export default function MovieDetailPage() {
   const params = useParams();
   const router = useRouter();
   const movieId = params.id as string;
 
-  const [movie, setMovie] = useState<Event | null>(null);
-  const [venueShows, setVenueShows] = useState<typeof mockShows>([]);
+  const [movie, setMovie] = useState<MovieData | null>(null);
+  const [venueShows, setVenueShows] = useState<VenueShowGroup[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [isWishlisted, setIsWishlisted] = useState(false);
@@ -174,24 +133,74 @@ export default function MovieDetailPage() {
 
   useEffect(() => {
     const fetchMovie = async () => {
+      setLoading(true);
       try {
-        const [movieData, showsData] = await Promise.all([
-          api.get<Event>(`/events/${movieId}`),
-          api.get<typeof mockShows>(`/events/${movieId}/shows`),
-        ]);
-        setMovie(movieData);
-        setVenueShows(showsData);
-      } catch {
-        // Use mock data
-        setMovie(mockMovie);
-        setVenueShows(mockShows);
+        // Fetch event data - server wraps response in { event }
+        const eventResponse = await api.get<{ event: ServerEvent }>(`/events/${movieId}`);
+        const serverEvent = eventResponse.event;
+        
+        if (serverEvent) {
+          setMovie(transformEvent(serverEvent));
+        }
+      } catch (error) {
+        console.error('Failed to fetch movie:', error);
+        setMovie(null);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchMovie();
+    if (movieId) {
+      fetchMovie();
+    }
   }, [movieId]);
+
+  // Fetch shows when date changes
+  useEffect(() => {
+    const fetchShows = async () => {
+      if (!movieId) return;
+      
+      try {
+        const dateStr = selectedDate.toISOString().split('T')[0]; // YYYY-MM-DD
+        const showsResponse = await api.get<{ shows: ServerShow[] }>(
+          `/events/${movieId}/shows?date=${dateStr}`
+        );
+        
+        // Group shows by venue
+        const venueMap = new Map<string, VenueShowGroup>();
+        
+        for (const show of showsResponse.shows || []) {
+          if (!show.hallId?.venueId) continue;
+          
+          const venueId = show.hallId.venueId._id;
+          
+          if (!venueMap.has(venueId)) {
+            venueMap.set(venueId, {
+              venue: show.hallId.venueId,
+              shows: []
+            });
+          }
+          
+          venueMap.get(venueId)!.shows.push(show);
+        }
+        
+        // Sort shows by start time within each venue
+        const grouped = Array.from(venueMap.values());
+        grouped.forEach(group => {
+          group.shows.sort((a, b) => 
+            new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
+          );
+        });
+        
+        setVenueShows(grouped);
+      } catch (error) {
+        console.error('Failed to fetch shows:', error);
+        setVenueShows([]);
+      }
+    };
+
+    fetchShows();
+  }, [movieId, selectedDate]);
 
   const formatShowTime = (time: string) => {
     return new Date(time).toLocaleTimeString('en-IN', {
@@ -201,9 +210,8 @@ export default function MovieDetailPage() {
     });
   };
 
-  const getShowPrice = (show: Show) => {
-    const minPrice = Math.min(...show.pricing.map((p) => p.price));
-    return `₹${minPrice}`;
+  const getShowPrice = (show: ServerShow) => {
+    return `₹${show.price || 150}`;
   };
 
   if (loading) {
@@ -410,44 +418,44 @@ export default function MovieDetailPage() {
 
             {/* Venue Shows */}
             <div className="space-y-4">
-              {venueShows.map(({ venue, shows }) => (
-                <div key={venue._id} className="card p-4">
-                  <div className="flex items-start justify-between mb-4">
-                    <div>
-                      <h3 className="font-semibold text-white">{venue.name}</h3>
-                      <p className="text-sm text-gray-400 flex items-center gap-1 mt-1">
-                        <MapPin className="w-3.5 h-3.5" />
-                        {venue.address}
-                      </p>
+              {venueShows.length === 0 ? (
+                <div className="card p-8 text-center">
+                  <p className="text-gray-400 mb-4">No shows available for this movie at the moment.</p>
+                  <p className="text-sm text-gray-500">Please check back later or browse other movies.</p>
+                </div>
+              ) : (
+                venueShows.map(({ venue, shows }) => (
+                  <div key={venue._id} className="card p-4">
+                    <div className="flex items-start justify-between mb-4">
+                      <div>
+                        <h3 className="font-semibold text-white">{venue.name}</h3>
+                        <p className="text-sm text-gray-400 flex items-center gap-1 mt-1">
+                          <MapPin className="w-3.5 h-3.5" />
+                          {venue.city}
+                        </p>
+                      </div>
                     </div>
-                    <div className="flex gap-2">
-                      {venue.facilities.slice(0, 3).map((facility) => (
-                        <Badge key={facility} variant="default" size="sm">
-                          {facility}
-                        </Badge>
+
+                    <div className="flex flex-wrap gap-3">
+                      {shows.map((show) => (
+                        <Link
+                          key={show._id}
+                          href={`/book/${show._id}/seats`}
+                        >
+                          <motion.button
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
+                            className="px-4 py-2 rounded-lg border border-primary-500 text-primary-400 hover:bg-primary-500/10 transition-colors"
+                          >
+                            <span className="font-medium">{formatShowTime(show.startTime)}</span>
+                            <span className="text-xs text-gray-400 block">{getShowPrice(show)}</span>
+                          </motion.button>
+                        </Link>
                       ))}
                     </div>
                   </div>
-
-                  <div className="flex flex-wrap gap-3">
-                    {shows.map((show) => (
-                      <Link
-                        key={show._id}
-                        href={`/book/${show._id}/seats?eventId=${movie._id}&venueId=${venue._id}`}
-                      >
-                        <motion.button
-                          whileHover={{ scale: 1.02 }}
-                          whileTap={{ scale: 0.98 }}
-                          className="px-4 py-2 rounded-lg border border-primary-500 text-primary-400 hover:bg-primary-500/10 transition-colors"
-                        >
-                          <span className="font-medium">{formatShowTime(show.showTime)}</span>
-                          <span className="text-xs text-gray-400 block">{getShowPrice(show)}</span>
-                        </motion.button>
-                      </Link>
-                    ))}
-                  </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           </motion.div>
         </div>

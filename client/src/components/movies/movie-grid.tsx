@@ -10,12 +10,12 @@ interface MovieGridProps {
   emptyMessage?: string;
 }
 
-export function MovieGrid({ movies, loading, emptyMessage = 'No movies found' }: MovieGridProps) {
+export function MovieGrid({ movies = [], loading, emptyMessage = 'No movies found' }: MovieGridProps) {
   if (loading) {
     return <MovieGridSkeleton count={12} />;
   }
 
-  if (movies.length === 0) {
+  if (!movies || movies.length === 0) {
     return (
       <div className="text-center py-12">
         <p className="text-gray-400">{emptyMessage}</p>

@@ -266,10 +266,10 @@ export default function MoviesPage() {
         if (selectedGenres.length) params.set('genre', selectedGenres.join(','));
         if (selectedLanguages.length) params.set('language', selectedLanguages.join(','));
 
-        const response = await api.get<PaginatedResponse<Event>>(
+        const response = await api.get<{ events: Event[] }>(
           `/events?${params.toString()}`
         );
-        setMovies(response.data);
+        setMovies(response.events || []);
       } catch {
         // Filter mock data based on filters
         let filtered = [...mockMovies];

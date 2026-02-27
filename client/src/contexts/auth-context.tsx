@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react';
-import { api } from '@/lib/api-client';
+import { api, setAccessToken, clearAccessToken } from '@/lib/api-client';
 import type { User } from '@/types';
 
 interface AuthContextType {
@@ -21,6 +21,11 @@ interface RegisterData {
   phone?: string;
 }
 
+interface AuthResponse {
+  user: User;
+  accessToken: string;
+}
+
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -33,32 +38,46 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(userData);
     } catch {
       setUser(null);
+      clearAccessToken();
     }
   }, []);
 
+  // Try to restore session on mount by calling refresh endpoint
   useEffect(() => {
     const initAuth = async () => {
       setIsLoading(true);
-      await refreshUser();
+      try {
+        // Try to get a new access token using refresh token cookie
+        const response = await api.post<{ accessToken: string }>('/auth/refresh');
+        setAccessToken(response.accessToken);
+        await refreshUser();
+      } catch {
+        // No valid refresh token, user needs to login
+        clearAccessToken();
+        setUser(null);
+      }
       setIsLoading(false);
     };
     initAuth();
   }, [refreshUser]);
 
   const login = async (email: string, password: string) => {
-    await api.post('/auth/login', { email, password });
-    await refreshUser();
+    const response = await api.post<AuthResponse>('/auth/login', { email, password });
+    setAccessToken(response.accessToken);
+    setUser(response.user);
   };
 
   const register = async (data: RegisterData) => {
-    await api.post('/auth/register', data);
-    await refreshUser();
+    const response = await api.post<AuthResponse>('/auth/register', data);
+    setAccessToken(response.accessToken);
+    setUser(response.user);
   };
 
   const logout = async () => {
     try {
       await api.post('/auth/logout');
     } finally {
+      clearAccessToken();
       setUser(null);
     }
   };

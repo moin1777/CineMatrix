@@ -48,11 +48,11 @@ export function MovieCard({ movie, index = 0 }: MovieCardProps) {
             )}
 
             {/* Rating badge */}
-            {movie.rating && (
+            {movie.rating != null && (
               <div className="absolute top-2 left-2">
                 <Badge variant="default" className="bg-black/60 backdrop-blur-sm">
                   <Star className="w-3 h-3 text-yellow-400 fill-yellow-400 mr-1" />
-                  {movie.rating.toFixed(1)}
+                  {typeof movie.rating === 'number' ? movie.rating.toFixed(1) : movie.rating}
                 </Badge>
               </div>
             )}
