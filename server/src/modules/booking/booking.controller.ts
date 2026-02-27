@@ -142,14 +142,23 @@ export const confirmBooking = async (req: Request, res: Response) => {
     // 3. Confirm Transaction
     try {
       const booking = await BookingService.confirmBooking(userId, showId, seats, paymentId);
+      
+      // Generate a booking code from the booking ID
+      const bookingCode = 'CM' + booking._id.toString().slice(-6).toUpperCase();
+      
       res.status(201).json({ 
         message: 'Booking confirmed successfully',
         booking: {
+          _id: booking._id,
           id: booking._id,
           seats: booking.seats,
           totalAmount: booking.totalAmount,
+          finalAmount: booking.totalAmount, // For client compatibility
           status: booking.status,
-          paymentId: booking.paymentId
+          paymentId: booking.paymentId,
+          bookingCode: bookingCode,
+          createdAt: booking.createdAt,
+          updatedAt: booking.updatedAt
         }
       });
     } catch (bookingError: any) {
@@ -205,6 +214,24 @@ export const cancelBooking = async (req: Request, res: Response) => {
 };
 
 // ============ BOOKING QUERIES ============
+
+export const getUserBookings = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.sub;
+    console.log('[getUserBookings] User ID:', userId);
+    
+    if (!userId) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+
+    const bookings = await BookingService.getUserBookings(userId);
+    console.log('[getUserBookings] Found bookings:', bookings.length);
+    res.json(bookings);
+  } catch (error: any) {
+    console.error('[getUserBookings] Error:', error.message);
+    res.status(500).json({ error: error.message });
+  }
+};
 
 export const getBooking = async (req: Request, res: Response) => {
   try {

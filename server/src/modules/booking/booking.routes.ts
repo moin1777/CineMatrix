@@ -16,6 +16,7 @@ router.get('/lock-status/:showId/:seatId', authenticate, BookingController.getSe
 
 // ============ BOOKING OPERATIONS ============
 router.post('/confirm', authenticate, bookingLimiter, idempotency, BookingController.confirmBooking);
+router.get('/my', authenticate, BookingController.getUserBookings);
 router.post('/:bookingId/cancel', authenticate, BookingController.cancelBooking);
 router.get('/:id', authenticate, BookingController.getBooking);
 

@@ -7,6 +7,7 @@ import { processRefund, queueRefund } from '../../utils/payment.provider';
 import mongoose from 'mongoose';
 
 const LOCK_TTL_SECONDS = 300; // 5 minutes
+const { ObjectId } = mongoose.Types;
 
 // ============ SEAT LOCKING ============
 
@@ -240,6 +241,31 @@ export const getBookingById = async (bookingId: string): Promise<IBooking | null
       ]
     })
     .populate('userId', 'email');
+};
+
+export const getUserBookings = async (userId: string): Promise<IBooking[]> => {
+  console.log('[getUserBookings] Querying for userId:', userId);
+  
+  // Convert string to ObjectId for proper MongoDB matching
+  const userObjectId = new ObjectId(userId);
+  
+  const bookings = await Booking.find({ userId: userObjectId, status: { $ne: 'CANCELLED' } })
+    .populate({
+      path: 'showId',
+      select: 'startTime hallId eventId price',
+      populate: [
+        { path: 'eventId', select: 'title posterUrl durationMinutes rating language genre' },
+        { path: 'hallId', select: 'name venueId', populate: { path: 'venueId', select: 'name city address' } }
+      ]
+    })
+    .sort({ createdAt: -1 });
+  
+  console.log('[getUserBookings] Found bookings:', bookings.length);
+  if (bookings.length > 0) {
+    console.log('[getUserBookings] First booking:', JSON.stringify(bookings[0], null, 2));
+  }
+  
+  return bookings;
 };
 
 export const getBookingsByShow = async (showId: string): Promise<IBooking[]> => {
