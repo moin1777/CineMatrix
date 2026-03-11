@@ -18,137 +18,112 @@ import { api } from '@/lib/api-client';
 import { formatDate, formatTime, formatCurrency } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import type { Booking, Event, Show, Venue } from '@/types';
 
-// Mock bookings
-const mockBookings: (Booking & { event: Event; show: Show; venue: Venue })[] = [
-  {
-    _id: 'b1',
-    user: 'u1',
-    show: 's1',
-    seats: [
-      { seatId: 'A5', category: 'premium', price: 250 },
-      { seatId: 'A6', category: 'premium', price: 250 },
-    ],
-    totalAmount: 500,
-    convenienceFee: 9,
-    taxes: 2,
-    finalAmount: 511,
-    status: 'confirmed',
-    paymentId: 'pay_123',
-    paymentStatus: 'completed',
-    bookingCode: 'CM7XK2P9',
-    createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-    updatedAt: '',
+// Booking type matching server response
+interface PopulatedBooking {
+  _id: string;
+  userId: string | { _id: string; email: string };
+  showId: {
+    _id: string;
+    startTime: string;
+    price?: number;
+    eventId: {
+      _id: string;
+      title: string;
+      posterUrl?: string;
+      durationMinutes?: number;
+      rating?: string;
+      language?: string;
+      genre?: string[];
+    };
+    hallId: {
+      _id: string;
+      name: string;
+      venueId: {
+        _id: string;
+        name: string;
+        city: string;
+        address: string;
+      };
+    };
+  };
+  seats: string[];
+  totalAmount: number;
+  status: 'PENDING' | 'CONFIRMED' | 'CANCELLED';
+  paymentId?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Transformed booking for display
+interface DisplayBooking {
+  _id: string;
+  event: {
+    title: string;
+    posterUrl: string;
+    certificate: string;
+    language: string[];
+  };
+  show: {
+    showTime: string;
+  };
+  venue: {
+    name: string;
+  };
+  seats: string[];
+  totalAmount: number;
+  status: 'PENDING' | 'CONFIRMED' | 'CANCELLED';
+  bookingCode: string;
+  createdAt: string;
+}
+
+function generateBookingCode(bookingId: string): string {
+  // Generate a short booking code from the booking ID
+  return 'CM' + bookingId.slice(-6).toUpperCase();
+}
+
+function transformBooking(booking: PopulatedBooking): DisplayBooking | null {
+  // Validate that the booking has the required populated data
+  if (!booking.showId || typeof booking.showId === 'string') {
+    console.warn('Booking showId not populated:', booking._id);
+    return null;
+  }
+  
+  const show = booking.showId;
+  const event = show.eventId;
+  const hall = show.hallId;
+  
+  // Handle language field - could be string or array
+  const languages: string[] = event?.language 
+    ? (Array.isArray(event.language) ? event.language : [event.language])
+    : ['English'];
+  
+  return {
+    _id: booking._id,
     event: {
-      _id: 'e1',
-      title: 'Dune: Part Three',
-      description: '',
-      category: 'movie',
-      genre: ['Sci-Fi'],
-      language: ['English'],
-      duration: 165,
-      releaseDate: '',
-      posterUrl: 'https://images.unsplash.com/photo-1534809027769-b00d750a6bac?q=80&w=400',
-      cast: [],
-      crew: [],
-      certificate: 'UA',
-      status: 'now_showing',
-      createdAt: '',
-      updatedAt: '',
+      title: event?.title || 'Unknown Event',
+      posterUrl: event?.posterUrl || '/placeholder-movie.jpg',
+      certificate: event?.rating || 'U',
+      language: languages,
     },
     show: {
-      _id: 's1',
-      event: 'e1',
-      venue: 'v1',
-      screen: 'Screen 1',
-      showTime: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-      endTime: '',
-      pricing: [],
-      bookedSeats: [],
-      status: 'scheduled',
-      createdAt: '',
-      updatedAt: '',
+      showTime: show.startTime || new Date().toISOString(),
     },
     venue: {
-      _id: 'v1',
-      name: 'PVR IMAX',
-      address: 'Phoenix Mall, Lower Parel',
-      city: 'Mumbai',
-      state: 'Maharashtra',
-      pincode: '400013',
-      facilities: [],
-      screens: [],
-      createdAt: '',
-      updatedAt: '',
+      name: hall?.venueId?.name || hall?.name || 'Unknown Venue',
     },
-  },
-  {
-    _id: 'b2',
-    user: 'u1',
-    show: 's2',
-    seats: [
-      { seatId: 'C3', category: 'standard', price: 150 },
-    ],
-    totalAmount: 150,
-    convenienceFee: 3,
-    taxes: 1,
-    finalAmount: 154,
-    status: 'confirmed',
-    paymentId: 'pay_456',
-    paymentStatus: 'completed',
-    bookingCode: 'CM9RP4M1',
-    createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-    updatedAt: '',
-    event: {
-      _id: 'e2',
-      title: 'The Dark Knight Returns',
-      description: '',
-      category: 'movie',
-      genre: ['Action'],
-      language: ['English'],
-      duration: 152,
-      releaseDate: '',
-      posterUrl: 'https://images.unsplash.com/photo-1509347528160-9a9e33742cdb?q=80&w=400',
-      cast: [],
-      crew: [],
-      certificate: 'UA',
-      status: 'now_showing',
-      createdAt: '',
-      updatedAt: '',
-    },
-    show: {
-      _id: 's2',
-      event: 'e2',
-      venue: 'v2',
-      screen: 'Insignia',
-      showTime: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
-      endTime: '',
-      pricing: [],
-      bookedSeats: [],
-      status: 'completed',
-      createdAt: '',
-      updatedAt: '',
-    },
-    venue: {
-      _id: 'v2',
-      name: 'INOX Megaplex',
-      address: 'R City Mall, Ghatkopar',
-      city: 'Mumbai',
-      state: 'Maharashtra',
-      pincode: '400086',
-      facilities: [],
-      screens: [],
-      createdAt: '',
-      updatedAt: '',
-    },
-  },
-];
+    seats: booking.seats || [],
+    totalAmount: booking.totalAmount || 0,
+    status: booking.status,
+    bookingCode: generateBookingCode(booking._id),
+    createdAt: booking.createdAt,
+  };
+}
 
 export default function BookingsPage() {
   const router = useRouter();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
-  const [bookings, setBookings] = useState<typeof mockBookings>([]);
+  const [bookings, setBookings] = useState<DisplayBooking[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'upcoming' | 'past'>('all');
 
@@ -161,10 +136,18 @@ export default function BookingsPage() {
   useEffect(() => {
     const fetchBookings = async () => {
       try {
-        const response = await api.get<typeof mockBookings>('/bookings');
-        setBookings(response);
-      } catch {
-        setBookings(mockBookings);
+        const response = await api.get<PopulatedBooking[]>('/bookings/my');
+        console.log('Bookings API response:', response);
+        
+        // Transform API response to display format, filtering out invalid bookings
+        const transformedBookings: DisplayBooking[] = response
+          .map(transformBooking)
+          .filter((b): b is DisplayBooking => b !== null);
+        
+        setBookings(transformedBookings);
+      } catch (err) {
+        console.error('Failed to fetch bookings:', err);
+        setBookings([]);
       } finally {
         setLoading(false);
       }
@@ -184,11 +167,11 @@ export default function BookingsPage() {
     return true;
   });
 
-  const getStatusBadge = (booking: typeof mockBookings[0]) => {
+  const getStatusBadge = (booking: DisplayBooking) => {
     const showDate = new Date(booking.show.showTime);
     const now = new Date();
 
-    if (booking.status === 'cancelled') {
+    if (booking.status === 'CANCELLED') {
       return <Badge variant="error">Cancelled</Badge>;
     }
     if (showDate > now) {
@@ -306,7 +289,7 @@ export default function BookingsPage() {
                       </div>
                       <div className="flex items-center gap-2 text-gray-400">
                         <Ticket className="w-4 h-4" />
-                        {booking.seats.map((s) => s.seatId).join(', ')}
+                        {booking.seats.join(', ')}
                       </div>
                     </div>
 
@@ -320,7 +303,7 @@ export default function BookingsPage() {
                       <div className="text-right">
                         <span className="text-xs text-gray-500">Total</span>
                         <p className="font-semibold text-white">
-                          {formatCurrency(booking.finalAmount)}
+                          {formatCurrency(booking.totalAmount)}
                         </p>
                       </div>
                     </div>

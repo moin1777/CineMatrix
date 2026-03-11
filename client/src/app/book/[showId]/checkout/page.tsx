@@ -213,8 +213,8 @@ export default function CheckoutPage() {
         '/bookings/confirm',
         {
           showId: pendingBooking?.showId,
-          seatIds: pendingBooking?.seats.map((s) => s.id),
-          paymentMethodId: 'pm_mock_card',
+          seats: pendingBooking?.seats.map((s) => s.id),
+          paymentToken: 'pm_mock_card',
         },
         {
           headers: {
@@ -228,32 +228,10 @@ export default function CheckoutPage() {
       sessionStorage.removeItem('pendingBooking');
       success('Booking confirmed!', 'Your tickets have been booked successfully');
     } catch (err: any) {
-      // For demo, simulate successful booking
-      const mockBooking: Booking = {
-        _id: 'booking-' + Date.now(),
-        user: user?._id || '',
-        show: showId,
-        seats: pendingBooking?.seats.map((s) => ({
-          seatId: s.id,
-          category: s.category,
-          price: s.price,
-        })) || [],
-        totalAmount: subtotal,
-        convenienceFee,
-        taxes,
-        finalAmount: total,
-        status: 'confirmed',
-        paymentId: 'pay_' + Date.now(),
-        paymentStatus: 'completed',
-        bookingCode: 'CM' + Math.random().toString(36).substring(2, 8).toUpperCase(),
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-
-      setIsSubmitted(true);
-      setBookingResult(mockBooking);
-      sessionStorage.removeItem('pendingBooking');
-      success('Booking confirmed!', 'Your tickets have been booked successfully');
+      console.error('Booking confirmation failed:', err);
+      showError(err.message || 'Failed to confirm booking. Please try again.');
+      setIsSubmitting(false);
+      return;
     } finally {
       setIsSubmitting(false);
     }

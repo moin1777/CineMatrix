@@ -79,13 +79,18 @@ export function debounce<T extends (...args: unknown[]) => unknown>(
   };
 }
 
-export function getInitials(name: string): string {
+export function getInitials(name: string | undefined | null): string {
+  if (!name || typeof name !== 'string' || name.trim() === '') {
+    return 'U';
+  }
   return name
+    .trim()
     .split(' ')
+    .filter((word) => word.length > 0)
     .map((word) => word[0])
     .join('')
     .toUpperCase()
-    .slice(0, 2);
+    .slice(0, 2) || 'U';
 }
 
 export function getRandomColor(): string {

@@ -43,7 +43,7 @@ export default function ProfilePage() {
 
   useEffect(() => {
     if (user) {
-      setEditName(user.name);
+      setEditName(user.name || '');
       setEditPhone(user.phone || '');
     }
   }, [user]);
@@ -108,7 +108,7 @@ export default function ProfilePage() {
 
               {/* Info */}
               <div className="flex-1 text-center sm:text-left">
-                <h1 className="text-2xl font-bold text-white">{user.name}</h1>
+                <h1 className="text-2xl font-bold text-white">{user.name || 'User'}</h1>
                 <p className="text-gray-400 mt-1">{user.email}</p>
                 {user.phone && (
                   <p className="text-gray-400 mt-1">+91 {user.phone}</p>

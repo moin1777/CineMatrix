@@ -176,7 +176,7 @@ export default function VenuesPage() {
                       View Shows
                     </Button>
                   </Link>
-                  <Button variant="ghost" size="icon">
+                  <Button variant="ghost" size="sm" className="w-auto">
                     <Star className="w-4 h-4" />
                   </Button>
                 </div>

@@ -1,7 +1,7 @@
 // User Types
 export interface User {
   _id: string;
-  name: string;
+  name?: string;
   email: string;
   phone?: string;
   role: 'user' | 'admin';
