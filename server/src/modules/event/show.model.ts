@@ -8,6 +8,8 @@ export interface IShow extends Document {
   totalSeats: number;
   price: number;
   bookedSeats: string[];
+  cancelledAt?: Date;
+  cancellationReason?: string;
   version: number;
 }
 
@@ -22,7 +24,9 @@ const ShowSchema = new Schema<IShow>({
     type: [String],
     default: [],
     index: true
-  }
+  },
+  cancelledAt: { type: Date, index: true },
+  cancellationReason: { type: String }
 }, { timestamps: true });
 
 // Compound indexes for common queries
