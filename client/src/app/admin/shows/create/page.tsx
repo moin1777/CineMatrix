@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils';
 
 interface Movie {
   id: string;
+  _id?: string;
   title: string;
   duration: number; // minutes
   poster: string;
@@ -19,14 +20,17 @@ interface Movie {
 
 interface Venue {
   id: string;
+  _id?: string;
   name: string;
   screens: Screen[];
 }
 
 interface Screen {
   id: string;
+  _id?: string;
   name: string;
   capacity: number;
+  basePrice?: number;
 }
 
 interface ExistingShow {
@@ -480,45 +484,116 @@ export default function CreateShowPage() {
   const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Mock data
-  const movies: Movie[] = [
-    { id: 'm1', title: 'Pushpa 2: The Rule', duration: 195, poster: '', genre: ['Action', 'Drama'], rating: 'UA' },
-    { id: 'm2', title: 'Avatar 3', duration: 180, poster: '', genre: ['Sci-Fi', 'Action'], rating: 'PG-13' },
-    { id: 'm3', title: 'KGF Chapter 3', duration: 180, poster: '', genre: ['Action', 'Crime'], rating: 'UA' },
-    { id: 'm4', title: 'RRR 2', duration: 195, poster: '', genre: ['Action', 'Period Drama'], rating: 'UA' },
-    { id: 'm5', title: 'Inception 2', duration: 165, poster: '', genre: ['Sci-Fi', 'Thriller'], rating: 'PG-13' },
-  ];
 
-  const venues: Venue[] = [
-    { 
-      id: 'v1', 
-      name: 'PVR Cinemas - Forum Mall', 
-      screens: [
-        { id: 's1', name: 'Screen 1 (IMAX)', capacity: 200 },
-        { id: 's2', name: 'Screen 2', capacity: 150 },
-        { id: 's3', name: 'Screen 3', capacity: 120 },
-      ]
-    },
-    { 
-      id: 'v2', 
-      name: 'INOX Multiplex - City Centre', 
-      screens: [
-        { id: 's4', name: 'Screen 1', capacity: 180 },
-        { id: 's5', name: 'Screen 2', capacity: 160 },
-      ]
-    },
-  ];
+  // API state
+  const [movies, setMovies] = useState<Movie[]>([]);
+  const [venues, setVenues] = useState<Venue[]>([]);
+  const [existingShows, setExistingShows] = useState<ExistingShow[]>([]);
+  const [fetchError, setFetchError] = useState('');
+  const [loadingData, setLoadingData] = useState(true);
 
-  const existingShows: ExistingShow[] = [
-    { id: 'e1', movieId: 'm1', movieTitle: 'Pushpa 2', screenId: 's1', date: form.date, startTime: '09:30', endTime: '12:45', duration: 195 },
-    { id: 'e2', movieId: 'm1', movieTitle: 'Pushpa 2', screenId: 's1', date: form.date, startTime: '14:00', endTime: '17:15', duration: 195 },
-    { id: 'e3', movieId: 'm2', movieTitle: 'Avatar 3', screenId: 's2', date: form.date, startTime: '10:00', endTime: '13:00', duration: 180 },
-    { id: 'e4', movieId: 'm3', movieTitle: 'KGF 3', screenId: 's1', date: form.date, startTime: '18:30', endTime: '21:30', duration: 180 },
-  ];
+  // Fetch movies and venues on mount
+  React.useEffect(() => {
+    async function fetchData() {
+      setLoadingData(true);
+      setFetchError('');
+      try {
+        const movieRes = await fetch('/api/events');
+        const movieJson = await movieRes.json();
+        const normalizedMovies: Movie[] = (movieJson.events || []).map((event: any) => ({
+          id: event._id,
+          _id: event._id,
+          title: event.title,
+          duration: event.durationMinutes,
+          poster: event.posterUrl || '',
+          genre: event.genre || [],
+          rating: event.rating || 'NR'
+        }));
+        setMovies(normalizedMovies);
 
-  const selectedMovie = movies.find(m => m.id === form.movieId);
-  const selectedVenue = venues.find(v => v.id === form.venueId);
-  const selectedScreen = selectedVenue?.screens.find(s => s.id === form.screenId);
+        const venueRes = await fetch('/api/venues');
+        const venueJson = await venueRes.json();
+        const venuesFromApi = venueJson.venues || [];
+
+        const venuesWithScreens: Venue[] = await Promise.all(
+          venuesFromApi.map(async (venue: any) => {
+            try {
+              const hallsRes = await fetch(`/api/venues/${venue._id}/halls`);
+              const hallsJson = await hallsRes.json();
+              const halls = hallsJson.halls || [];
+
+              return {
+                id: venue._id,
+                _id: venue._id,
+                name: venue.name,
+                screens: halls.map((hall: any) => ({
+                  id: hall._id,
+                  _id: hall._id,
+                  name: hall.name,
+                  capacity: hall.capacity,
+                  basePrice: hall.seatMap?.[0]?.price || 200
+                }))
+              };
+            } catch {
+              return {
+                id: venue._id,
+                _id: venue._id,
+                name: venue.name,
+                screens: []
+              };
+            }
+          })
+        );
+
+        setVenues(venuesWithScreens);
+      } catch (err: any) {
+        setFetchError('Failed to load movies or venues');
+      } finally {
+        setLoadingData(false);
+      }
+    }
+    fetchData();
+  }, []);
+
+  // Fetch shows for selected screen/date
+  React.useEffect(() => {
+    async function fetchShows() {
+      if (!form.venueId || !form.screenId || !form.date) return;
+      try {
+        const res = await fetch(`/api/events/venue/${form.venueId}/shows?date=${form.date}`);
+        const json = await res.json();
+        const mappedShows: ExistingShow[] = (json.shows || [])
+          .filter((show: any) => {
+            const hallId = typeof show.hallId === 'string' ? show.hallId : show.hallId?._id;
+            return hallId === form.screenId;
+          })
+          .map((show: any) => {
+            const start = new Date(show.startTime);
+            const end = new Date(show.endTime);
+
+            return {
+              id: show._id,
+              movieId: typeof show.eventId === 'string' ? show.eventId : show.eventId?._id,
+              movieTitle: typeof show.eventId === 'string' ? 'Event' : show.eventId?.title || 'Event',
+              screenId: typeof show.hallId === 'string' ? show.hallId : show.hallId?._id,
+              date: form.date,
+              startTime: `${String(start.getHours()).padStart(2, '0')}:${String(start.getMinutes()).padStart(2, '0')}`,
+              endTime: `${String(end.getHours()).padStart(2, '0')}:${String(end.getMinutes()).padStart(2, '0')}`,
+              duration: Math.max(1, Math.round((end.getTime() - start.getTime()) / 60000))
+            };
+          });
+
+        setExistingShows(mappedShows);
+      } catch {
+        setExistingShows([]);
+      }
+    }
+    fetchShows();
+  }, [form.venueId, form.screenId, form.date]);
+
+  const selectedMovie = movies.find(m => m._id === form.movieId || m.id === form.movieId);
+  const selectedVenue = venues.find(v => v._id === form.venueId || v.id === form.venueId);
+  const selectedScreen = selectedVenue?.screens?.find(s => s._id === form.screenId || s.id === form.screenId);
 
   const totalDuration = (selectedMovie?.duration || 0) + form.cleanupTime;
   const endTime = form.time ? calculateEndTime(form.time, totalDuration) : '';
@@ -552,23 +627,41 @@ export default function CreateShowPage() {
 
   const handleSubmit = async () => {
     setIsSubmitting(true);
-    
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    console.log('Creating show:', {
-      ...form,
-      endTime,
-      movieTitle: selectedMovie?.title,
-      venueName: selectedVenue?.name,
-      screenName: selectedScreen?.name,
-    });
-    
-    setIsSubmitting(false);
-    // Would redirect to shows list
+    setFetchError("");
+    try {
+      // POST to backend
+      const payload = {
+        eventId: selectedMovie?._id || selectedMovie?.id,
+        hallId: selectedScreen?._id || selectedScreen?.id,
+        startTime: new Date(`${form.date}T${form.time}`),
+        price: form.pricingTier === 'prime' ? 1.3 * (selectedScreen?.basePrice || 200) : form.pricingTier === 'special' ? 1.5 * (selectedScreen?.basePrice || 200) : (selectedScreen?.basePrice || 200),
+      };
+      const res = await fetch('/api/events/shows', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to create show');
+      }
+      setIsSubmitting(false);
+      // Redirect to shows list
+      window.location.href = '/admin/shows';
+    } catch (err: any) {
+      setFetchError(err.message || 'Failed to create show');
+      setIsSubmitting(false);
+    }
   };
 
   const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+  if (loadingData) {
+    return <div className="flex items-center justify-center min-h-screen text-gray-400">Loading...</div>;
+  }
+  if (fetchError) {
+    return <div className="flex items-center justify-center min-h-screen text-red-400">{fetchError}</div>;
+  }
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">

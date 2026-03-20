@@ -732,12 +732,16 @@ export default function SeatMapBuilderPage() {
   }, [tool, viewport, getGridPosition, addSeat]);
 
   // Handle seat click
-  const handleSeatClick = useCallback((seatId: string, e: Konva.KonvaEventObject<MouseEvent>) => {
+  const handleSeatClick = useCallback((seatId: string, e: Konva.KonvaEventObject<Event>) => {
     e.cancelBubble = true;
+    const nativeEvent = e.evt as MouseEvent | TouchEvent;
+    const hasModifierKeys =
+      'shiftKey' in nativeEvent &&
+      (nativeEvent.shiftKey || nativeEvent.ctrlKey || nativeEvent.metaKey);
 
     switch (tool) {
       case 'select':
-        if (e.evt.shiftKey || e.evt.ctrlKey || e.evt.metaKey) {
+        if (hasModifierKeys) {
           // Multi-select
           setSelectedSeatIds(prev => {
             const newSet = new Set(prev);

@@ -13,6 +13,7 @@ import eventRoutes from './modules/event/event.routes';
 import venueRoutes from './modules/venue/venue.routes';
 import userRoutes from './modules/user/user.routes';
 import venueTemplateRoutes from './modules/venue-template/venue-template.routes';
+import adminRoutes from './modules/admin/admin.routes';
 
 const app = express();
 
@@ -59,7 +60,7 @@ app.use('/api/events', eventRoutes);
 app.use('/api/venues', venueRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/venue-templates', venueTemplateRoutes);
-
+app.use('/api/admin', adminRoutes);
 // ============ HEALTH & STATUS ENDPOINTS ============
 app.get('/health', (req, res) => {
   res.json({ 

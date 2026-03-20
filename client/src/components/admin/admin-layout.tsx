@@ -331,19 +331,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggleCollapse, curren
         isCollapsed ? 'w-16' : 'w-64'
       )}
     >
-      {/* Logo */}
-      <div className={cn(
-        'h-16 flex items-center border-b border-gray-800 px-4',
-        isCollapsed ? 'justify-center' : 'justify-between'
-      )}>
-        {!isCollapsed && (
-          <Link href="/admin" className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-primary-500 rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold">C</span>
-            </div>
-            <span className="text-white font-semibold">Cinematrix</span>
-          </Link>
-        )}
+      <div className="h-16 flex items-center justify-end border-b border-gray-800 px-4">
         <button
           onClick={onToggleCollapse}
           className="p-2 rounded-lg hover:bg-surface-active text-gray-400 hover:text-white transition-colors"
@@ -380,33 +368,11 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, sidebarCollapsed }) => {
   return (
     <header
       className={cn(
-        'fixed top-0 right-0 h-16 bg-surface-card border-b border-gray-800 flex items-center justify-between px-6 z-30 transition-all duration-300',
+        'fixed top-0 right-0 h-16 bg-surface-card border-b border-gray-800 flex items-center justify-end px-6 z-30 transition-all duration-300',
         sidebarCollapsed ? 'left-16' : 'left-64'
       )}
     >
-      {/* Left side - Mobile menu & Search */}
-      <div className="flex items-center gap-4">
-        <button
-          onClick={onMenuClick}
-          className="lg:hidden p-2 rounded-lg hover:bg-surface-active text-gray-400"
-        >
-          {Icons.menu}
-        </button>
-
-        {/* Search */}
-        <div className="relative hidden sm:block">
-          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">
-            {Icons.search}
-          </span>
-          <input
-            type="text"
-            placeholder="Search..."
-            className="w-64 pl-10 pr-4 py-2 bg-surface-active rounded-lg border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:border-primary-500 transition-colors"
-          />
-        </div>
-      </div>
-
-      {/* Right side - Notifications & Profile */}
+      {/* Only right side - Notifications & Profile, no logo */}
       <div className="flex items-center gap-4">
         {/* Notifications */}
         <button className="relative p-2 rounded-lg hover:bg-surface-active text-gray-400 hover:text-white transition-colors">
@@ -452,14 +418,7 @@ const MobileSidebar: React.FC<MobileSidebarProps> = ({ isOpen, onClose, currentP
       
       {/* Sidebar */}
       <aside className="fixed left-0 top-0 h-full w-64 bg-surface-card border-r border-gray-800 z-50 lg:hidden">
-        {/* Logo */}
-        <div className="h-16 flex items-center justify-between border-b border-gray-800 px-4">
-          <Link href="/admin" className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-primary-500 rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold">C</span>
-            </div>
-            <span className="text-white font-semibold">Cinematrix</span>
-          </Link>
+        <div className="h-16 flex items-center justify-end border-b border-gray-800 px-4">
           <button
             onClick={onClose}
             className="p-2 rounded-lg hover:bg-surface-active text-gray-400"
@@ -488,18 +447,49 @@ const MobileSidebar: React.FC<MobileSidebarProps> = ({ isOpen, onClose, currentP
 // MAIN ADMIN LAYOUT COMPONENT
 // ============================================================================
 
+import { useAuth } from '@/contexts/auth-context';
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+
 const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
   const pathname = usePathname();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const { user, isLoading, isAuthenticated } = useAuth();
+  const router = useRouter();
 
   const toggleSidebar = useCallback(() => {
-    setSidebarCollapsed(prev => !prev);
+    setSidebarCollapsed((prev) => !prev);
   }, []);
 
   const toggleMobileSidebar = useCallback(() => {
-    setMobileSidebarOpen(prev => !prev);
+    setMobileSidebarOpen((prev) => !prev);
   }, []);
+
+  useEffect(() => {
+    if (!isLoading && (!isAuthenticated || user?.role !== 'admin')) {
+      router.replace('/auth/login?from=admin');
+    }
+  }, [isLoading, isAuthenticated, user, router]);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <span className="text-gray-400 text-lg">Loading...</span>
+      </div>
+    );
+  }
+
+  if (!user || user.role !== 'admin') {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold text-red-500 mb-2">403 Forbidden</h2>
+          <p className="text-gray-400">You do not have access to the admin dashboard.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-surface-default">

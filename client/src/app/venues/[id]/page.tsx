@@ -141,7 +141,7 @@ export default function VenueDetailPage() {
                 <span>{venue.address}, {venue.city}, {venue.state} - {venue.pincode}</span>
               </div>
             </div>
-            <Badge variant={venue.isActive ? 'default' : 'destructive'} className="text-sm">
+            <Badge variant={venue.isActive ? 'default' : 'error'} className="text-sm">
               {venue.isActive ? 'Open' : 'Closed'}
             </Badge>
           </div>
@@ -191,15 +191,15 @@ export default function VenueDetailPage() {
                   >
                     <div className="flex items-start justify-between mb-3">
                       <h3 className="font-semibold text-white">{hall.name}</h3>
-                      <Badge variant="outline" className="text-xs">
+                      <Badge variant="info" className="text-xs">
                         {hall.capacity} seats
                       </Badge>
                     </div>
                     <div className="flex flex-wrap gap-2 mb-3">
-                      <Badge variant="secondary" className="text-xs">
+                      <Badge variant="default" className="text-xs">
                         {hall.screenType}
                       </Badge>
-                      <Badge variant="secondary" className="text-xs">
+                      <Badge variant="default" className="text-xs">
                         {hall.soundSystem}
                       </Badge>
                     </div>
@@ -278,7 +278,7 @@ export default function VenueDetailPage() {
                   Browse Movies
                 </Button>
                 <Button 
-                  variant="outline" 
+                  variant="secondary" 
                   className="w-full"
                   onClick={() => window.open(`https://maps.google.com/?q=${encodeURIComponent(venue.address + ', ' + venue.city)}`, '_blank')}
                 >
