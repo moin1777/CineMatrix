@@ -16,5 +16,9 @@ router.patch('/pricing/rules/:id/status', AdminController.updatePricingRuleStatu
 router.delete('/pricing/rules/:id', AdminController.removePricingRule);
 router.get('/shows', AdminController.getShows);
 router.patch('/shows/:id/cancel', AdminController.cancelShow);
+router.get('/users', AdminController.getUsers);
+router.patch('/users/:id/status', AdminController.setUserStatus);
+router.get('/settings', AdminController.getSettings);
+router.put('/settings', AdminController.updateSettings);
 
 export default router;

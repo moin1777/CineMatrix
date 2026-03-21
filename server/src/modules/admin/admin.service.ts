@@ -9,6 +9,7 @@ import {
   SeatCategoryPricing,
   type PricingRuleType
 } from './admin-pricing.model';
+import { AdminSettings } from './admin-settings.model';
 
 type DashboardRange = 'today' | '7d' | '30d';
 type AnalyticsRange = '7d' | '30d' | '90d';
@@ -1044,6 +1045,174 @@ export const deletePricingRule = async (ruleId: string) => {
   const deleted = await PricingRule.findByIdAndDelete(ruleId);
   if (!deleted) throw new Error('Pricing rule not found');
   return deleted;
+};
+
+export const getAdminUsersData = async (params: {
+  search?: string;
+  role?: 'all' | 'user' | 'admin';
+  status?: 'all' | 'active' | 'inactive';
+  page?: number;
+  limit?: number;
+}) => {
+  const page = params.page || 1;
+  const limit = Math.min(params.limit || 20, 100);
+  const skip = (page - 1) * limit;
+
+  const query: Record<string, any> = {};
+  if (params.role && params.role !== 'all') query.role = params.role;
+  if (params.status && params.status !== 'all') query.isActive = params.status === 'active';
+
+  if (params.search?.trim()) {
+    const escaped = params.search.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(escaped, 'i');
+    query.$or = [{ email: regex }, { name: regex }, { phone: regex }];
+  }
+
+  const [items, total, activeCount, adminCount] = await Promise.all([
+    User.find(query)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .select('email name phone role isActive lastLogin createdAt history')
+      .lean(),
+    User.countDocuments(query),
+    User.countDocuments({ isActive: true }),
+    User.countDocuments({ role: 'admin' })
+  ]);
+
+  return {
+    items: items.map((user: any) => ({
+      id: user._id.toString(),
+      name: user.name || '—',
+      email: user.email,
+      phone: user.phone || '—',
+      role: user.role,
+      isActive: !!user.isActive,
+      lastLogin: user.lastLogin || null,
+      createdAt: user.createdAt,
+      bookingCount: Array.isArray(user.history) ? user.history.length : 0
+    })),
+    pagination: {
+      page,
+      limit,
+      total,
+      pages: Math.max(1, Math.ceil(total / limit))
+    },
+    summary: {
+      totalUsers: await User.countDocuments(),
+      activeUsers: activeCount,
+      inactiveUsers: Math.max(0, (await User.countDocuments()) - activeCount),
+      adminUsers: adminCount
+    }
+  };
+};
+
+export const updateAdminUserStatus = async (userId: string, isActive: boolean, actorUserId?: string) => {
+  if (actorUserId && userId === actorUserId && !isActive) {
+    throw new Error('You cannot deactivate your own account');
+  }
+
+  const user = await User.findByIdAndUpdate(userId, { isActive }, { new: true, runValidators: true })
+    .select('email name phone role isActive lastLogin createdAt history')
+    .lean();
+
+  if (!user) throw new Error('User not found');
+
+  return {
+    id: user._id.toString(),
+    name: user.name || '—',
+    email: user.email,
+    phone: user.phone || '—',
+    role: user.role,
+    isActive: !!user.isActive,
+    lastLogin: user.lastLogin || null,
+    createdAt: user.createdAt,
+    bookingCount: Array.isArray(user.history) ? user.history.length : 0
+  };
+};
+
+const getOrCreateAdminSettings = async () => {
+  let settings = await AdminSettings.findOne({ key: 'default' });
+  if (!settings) {
+    settings = await AdminSettings.create({ key: 'default' });
+  }
+  return settings;
+};
+
+export const getAdminSettingsData = async () => {
+  const settings = await getOrCreateAdminSettings();
+
+  return {
+    booking: settings.booking,
+    payments: settings.payments,
+    notifications: settings.notifications,
+    operations: settings.operations,
+    updatedAt: settings.updatedAt
+  };
+};
+
+export const updateAdminSettingsData = async (
+  payload: {
+    booking?: Partial<{ allowGuestCheckout: boolean; holdMinutes: number; maxTicketsPerBooking: number }>;
+    payments?: Partial<{ providerMode: 'test' | 'live'; cashEnabled: boolean; cardEnabled: boolean; upiEnabled: boolean }>;
+    notifications?: Partial<{ supportEmail: string; alertOnFailedPayments: boolean }>;
+    operations?: Partial<{ maintenanceMode: boolean }>;
+  },
+  updatedBy?: string
+) => {
+  await getOrCreateAdminSettings();
+
+  const setFields: Record<string, any> = {};
+
+  if (payload.booking) {
+    if (typeof payload.booking.allowGuestCheckout === 'boolean') setFields['booking.allowGuestCheckout'] = payload.booking.allowGuestCheckout;
+    if (typeof payload.booking.holdMinutes === 'number') setFields['booking.holdMinutes'] = Math.max(1, Math.min(30, payload.booking.holdMinutes));
+    if (typeof payload.booking.maxTicketsPerBooking === 'number') setFields['booking.maxTicketsPerBooking'] = Math.max(1, Math.min(20, payload.booking.maxTicketsPerBooking));
+  }
+
+  if (payload.payments) {
+    if (payload.payments.providerMode === 'test' || payload.payments.providerMode === 'live') setFields['payments.providerMode'] = payload.payments.providerMode;
+    if (typeof payload.payments.cashEnabled === 'boolean') setFields['payments.cashEnabled'] = payload.payments.cashEnabled;
+    if (typeof payload.payments.cardEnabled === 'boolean') setFields['payments.cardEnabled'] = payload.payments.cardEnabled;
+    if (typeof payload.payments.upiEnabled === 'boolean') setFields['payments.upiEnabled'] = payload.payments.upiEnabled;
+  }
+
+  if (payload.notifications) {
+    if (typeof payload.notifications.supportEmail === 'string' && payload.notifications.supportEmail.trim()) {
+      setFields['notifications.supportEmail'] = payload.notifications.supportEmail.trim().toLowerCase();
+    }
+    if (typeof payload.notifications.alertOnFailedPayments === 'boolean') {
+      setFields['notifications.alertOnFailedPayments'] = payload.notifications.alertOnFailedPayments;
+    }
+  }
+
+  if (payload.operations) {
+    if (typeof payload.operations.maintenanceMode === 'boolean') {
+      setFields['operations.maintenanceMode'] = payload.operations.maintenanceMode;
+    }
+  }
+
+  if (updatedBy) {
+    setFields.updatedBy = toObjectId(updatedBy);
+  }
+
+  const updated = await AdminSettings.findOneAndUpdate(
+    { key: 'default' },
+    { $set: setFields },
+    { new: true, upsert: true, runValidators: true }
+  );
+
+  if (!updated) {
+    throw new Error('Failed to update settings');
+  }
+
+  return {
+    booking: updated.booking,
+    payments: updated.payments,
+    notifications: updated.notifications,
+    operations: updated.operations,
+    updatedAt: updated.updatedAt
+  };
 };
 
 export const getAdminShowsData = async (params: {

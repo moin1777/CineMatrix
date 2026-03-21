@@ -6,9 +6,13 @@ import {
   getAdminMoviesData,
   getAdminPricingData,
   getAdminShowsData,
+  getAdminUsersData,
+  getAdminSettingsData,
   getDashboardData,
   togglePricingRuleStatus,
-  toggleEventActiveStatus
+  toggleEventActiveStatus,
+  updateAdminUserStatus,
+  updateAdminSettingsData
 } from './admin.service';
 
 export const getDashboard = async (req: Request, res: Response) => {
@@ -160,5 +164,64 @@ export const cancelShow = async (req: Request, res: Response) => {
       return res.status(400).json({ error: error.message });
     }
     res.status(500).json({ error: error.message || 'Failed to cancel show' });
+  }
+};
+
+export const getUsers = async (req: Request, res: Response) => {
+  try {
+    const page = req.query.page ? parseInt(req.query.page as string, 10) : 1;
+    const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 20;
+    const search = (req.query.search as string) || '';
+    const roleRaw = (req.query.role as string) || 'all';
+    const statusRaw = (req.query.status as string) || 'all';
+
+    const role = roleRaw === 'user' || roleRaw === 'admin' ? roleRaw : 'all';
+    const status = statusRaw === 'active' || statusRaw === 'inactive' ? statusRaw : 'all';
+
+    const data = await getAdminUsersData({ page, limit, search, role, status });
+    res.json(data);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message || 'Failed to fetch users' });
+  }
+};
+
+export const setUserStatus = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { isActive } = req.body as { isActive?: boolean };
+    if (typeof isActive !== 'boolean') {
+      return res.status(400).json({ error: 'isActive must be a boolean' });
+    }
+
+    const actorUserId = req.user?.sub;
+    const user = await updateAdminUserStatus(id as string, isActive, actorUserId);
+    res.json({ user });
+  } catch (error: any) {
+    if (error.message === 'User not found') {
+      return res.status(404).json({ error: error.message });
+    }
+    if (error.message === 'You cannot deactivate your own account') {
+      return res.status(400).json({ error: error.message });
+    }
+    res.status(500).json({ error: error.message || 'Failed to update user status' });
+  }
+};
+
+export const getSettings = async (_req: Request, res: Response) => {
+  try {
+    const data = await getAdminSettingsData();
+    res.json(data);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message || 'Failed to fetch settings' });
+  }
+};
+
+export const updateSettings = async (req: Request, res: Response) => {
+  try {
+    const actorUserId = req.user?.sub;
+    const data = await updateAdminSettingsData(req.body || {}, actorUserId);
+    res.json(data);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message || 'Failed to update settings' });
   }
 };
