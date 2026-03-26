@@ -160,7 +160,8 @@ const seed = async () => {
       genre: ['Action', 'Thriller'],
       language: 'Hindi',
       rating: 'UA',
-      releaseDate: new Date('2025-08-14'),
+      // Q1 2026 slate
+      releaseDate: new Date('2026-01-10'),
       director: 'Ayan Mukerji',
       cast: ['Hrithik Roshan', 'N. T. Rama Rao Jr.', 'Kiara Advani'],
       isActive: true
@@ -174,7 +175,7 @@ const seed = async () => {
       genre: ['Action', 'Drama'],
       language: 'Tamil',
       rating: 'UA',
-      releaseDate: new Date('2025-10-17'),
+      releaseDate: new Date('2026-01-24'),
       director: 'Lokesh Kanagaraj',
       cast: ['Rajinikanth', 'Nagarjuna', 'Upendra'],
       isActive: true
@@ -188,7 +189,7 @@ const seed = async () => {
       genre: ['Action', 'Drama', 'Mystery'],
       language: 'Kannada',
       rating: 'UA',
-      releaseDate: new Date('2025-10-02'),
+      releaseDate: new Date('2026-02-07'),
       director: 'Rishab Shetty',
       cast: ['Rishab Shetty'],
       isActive: true
@@ -202,7 +203,7 @@ const seed = async () => {
       genre: ['Sci-Fi', 'Adventure'],
       language: 'English',
       rating: 'UA',
-      releaseDate: new Date('2025-12-19'),
+      releaseDate: new Date('2026-02-21'),
       director: 'James Cameron',
       cast: ['Sam Worthington', 'Zoe Saldana', 'Sigourney Weaver'],
       isActive: true
@@ -216,7 +217,7 @@ const seed = async () => {
       genre: ['Action', 'Sci-Fi', 'Adventure'],
       language: 'English',
       rating: 'UA',
-      releaseDate: new Date('2026-05-01'),
+      releaseDate: new Date('2026-03-06'),
       director: 'Anthony Russo, Joe Russo',
       cast: ['Ensemble Cast'],
       isActive: true
@@ -230,7 +231,7 @@ const seed = async () => {
       genre: ['Sci-Fi', 'Adventure'],
       language: 'English',
       rating: 'UA',
-      releaseDate: new Date('2026-05-22'),
+      releaseDate: new Date('2026-03-13'),
       director: 'Jon Favreau',
       cast: ['Pedro Pascal'],
       isActive: true
@@ -244,7 +245,7 @@ const seed = async () => {
       genre: ['Animation', 'Family', 'Comedy'],
       language: 'English',
       rating: 'U',
-      releaseDate: new Date('2026-06-19'),
+      releaseDate: new Date('2026-03-20'),
       director: 'Pixar Team',
       cast: ['Tom Hanks', 'Tim Allen'],
       isActive: true
@@ -258,7 +259,7 @@ const seed = async () => {
       genre: ['Sci-Fi', 'Drama'],
       language: 'English',
       rating: 'UA',
-      releaseDate: new Date('2026-12-18'),
+      releaseDate: new Date('2026-03-27'),
       director: 'Denis Villeneuve',
       cast: ['Timothée Chalamet', 'Zendaya', 'Florence Pugh'],
       isActive: true
@@ -272,7 +273,7 @@ const seed = async () => {
       genre: ['Action', 'Drama', 'Thriller'],
       language: 'Telugu',
       rating: 'A',
-      releaseDate: new Date('2026-08-14'),
+      releaseDate: new Date('2026-03-29'),
       director: 'Sukumar',
       cast: ['Allu Arjun', 'Rashmika Mandanna'],
       isActive: true
@@ -286,7 +287,7 @@ const seed = async () => {
       genre: ['Sci-Fi', 'Action', 'Fantasy'],
       language: 'Telugu',
       rating: 'UA',
-      releaseDate: new Date('2026-10-22'),
+      releaseDate: new Date('2026-03-31'),
       director: 'Nag Ashwin',
       cast: ['Prabhas', 'Deepika Padukone', 'Amitabh Bachchan'],
       isActive: true
@@ -299,8 +300,9 @@ const seed = async () => {
   const today = new Date();
   
   for (const event of events) {
-    // Create shows for the next 7 days
-    for (let day = 0; day < 7; day++) {
+    // Create shows for the next 30 days so the UI
+    // always has upcoming data for demo and testing
+    for (let day = 0; day < 30; day++) {
       const showDate = new Date(today);
       showDate.setDate(showDate.getDate() + day);
       
